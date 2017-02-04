@@ -1,0 +1,33 @@
+machine:
+  node:
+    version: 6.2
+  services: 
+    - docker
+dependencies:
+  pre:
+    - npm install -g yarn
+    - npm install -g gerencio-upgrade
+    - npm -g install gulp-cli
+  override:
+    - rm -rf node_modules/bcrypt
+    - rm -rf node_modules/typescript
+    - yarn
+    - gulp ts
+    - docker info
+    - docker build -t $OWNER/$CONTAINER_NAME .
+test:
+  override:
+    - docker run -it -p 28015:28015 -d rethinkdb 
+    - gulp test
+    # - wget -c https://sonarsource.bintray.com/Distribution/sonar-scanner-cli/sonar-scanner-2.8.zip
+    # - unzip sonar-scanner-2.8.zip
+    # - echo \sonar.password=$(echo $SONAR_PASSWORD) >> sonar-project.properties
+    # - ./sonar-scanner-2.8/bin/sonar-scanner
+deployment:
+  prod:
+    tag: /v[0-9]+(\.[0-9]+)+(-rc[0-9]+)?/ # v1.2.3 and v1.2.3-rc1
+    commands:
+      - docker tag $OWNER/$CONTAINER_NAME $OWNER/$CONTAINER_NAME:$CIRCLE_TAG
+      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+      - docker push $OWNER/$CONTAINER_NAME:$CIRCLE_TAG
+      - gerencio-upgrade $SERVICENAME 40000 $OWNER/$CONTAINER_NAME $CIRCLE_TAG --COMPOSE_VERSION=v0.12.0
